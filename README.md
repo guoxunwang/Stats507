@@ -4,5 +4,7 @@ Group Project: Group 1
 Ridge Regression
 
 Author: Matlab:Junzhang Li
+        
         R: Ruirui Zhang
+        
         Stata: Xun Wang
