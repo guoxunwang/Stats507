@@ -1,0 +1,286 @@
+---
+title: "R coding sample"
+author: "Xun Wang, xunwang@umich.edu"
+date: "Novmber 28,2018"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Question 1
+Use data RECS 2015 to compute the average total electricity usage in kilowatt 
+hours in each division. Stratified the result by urban and rural status.
+Data: https://www.eia.gov/consumption/residential/data/2015/csv/recs2015_public_v3.csv
+
+
+##Solution: data.table
+```{r}
+#Libraries:-------------------------------------------------------------------
+library(data.table)
+library(magrittr)
+library(ggplot2)
+
+#Directories or website read from:--------------------------------------------
+file='recs2015_public_v3.csv'
+if(file.exists(file)){
+  recs_dt=data.table::fread(file)}else{
+    recs_dt=data.table::fread("https://www.eia.gov/consumption/residential/data/2015/csv/recs2015_public_v3.csv")
+  }
+
+###Decode functions-div-------------------------------------------------------
+decode_div=function(x){
+  switch(x,"New England","Middle Atlantic","East North Central",
+         "West North Central","South Atlantic","East South Central",
+         "West South Central","Mountain North","Mountain South","Pacific")}
+decode_all_div=function(x){
+  sapply(x,decode_div)}
+
+###Decode functions-urban and rural
+###see both urban cluster and urban area as urban
+decode_ur=function(x){
+  y=which(c("U","C","R")==x)
+  switch(y,"Urban","Urban","Rural")}
+decode_all_ur=function(x){
+  sapply(x,decode_ur)}
+
+###average stratified by urban and rural status------------------------------
+names_brrwt=paste("BRRWT",1:96,sep="")
+para=4/96
+m=qnorm(.975)
+recs_2=recs_dt[,.SD,.SDcols=c("DIVISION","UATYP10","KWH","NWEIGHT",names_brrwt)]
+recs_plot_2=recs_2[,`:=`(div=decode_all_div(DIVISION),
+                     ur=decode_all_ur(UATYP10))]%>%
+  .[,lapply(.SD,function(x){sum(KWH*x)/sum(x)}),by=.(div,ur),
+    .SDcols=NWEIGHT:BRRWT96]%>%
+  .[,lapply(.SD,function(x){(x-NWEIGHT)^2}),by=.(div,ur,NWEIGHT),
+    .SDcols=BRRWT1:BRRWT96]%>%
+  .[,.(div,ur,average_ur=NWEIGHT,se=sqrt(para*rowSums(.SD))),
+    .SDcols=BRRWT1:BRRWT96]%>%
+  .[,.(div,ur,average_ur,lwr=average_ur-m*se,upr=average_ur+m*se)]
+recs_table_2=recs_plot_2[,.(div,ur,average_ur,ci=sprintf("%8.3f(%8.3f,%8.3f)",
+                                              average_ur,lwr,upr))]%>%
+  dcast(div~ur,value.var=c("average_ur","ci"))%>%
+  .[order(-average_ur_Rural)]%>%
+  .[,-c("average_ur_Rural","average_ur_Urban")]
+```
+
+
+##Solution: dplyr
+```{r message=FALSE}
+#Libraries:-------------------------------------------------------------------
+library(dplyr)
+library(tibble)
+library(tidyr)
+library(magrittr)
+
+#Directories or website read from:--------------------------------------------
+file='./recs2015_public_v3.csv'
+if(file.exists(file)){
+  recs_tib=readr::read_delim(file, delim=',')}else{
+  recs_tib=readr::read_delim("https://www.eia.gov/consumption/residential/data/2015/csv/recs2015_public_v3.csv",delim=',')
+  }
+
+recs_2015=select(recs_tib,div=DIVISION,mowm=WALLTYPE,ur=UATYP10,
+                 ele=KWH,internet=INTERNET,wei=NWEIGHT,BRRWT1:BRRWT96)
+para=1/(96*(0.5)^2)
+
+###Decode functions-div-------------------------------------------------------
+decode_div=function(x){
+  switch(x,"New England","Middle Atlantic","East North Central",
+         "West North Central","South Atlantic","East South Central",
+         "West South Central","Mountain North","Mountain South","Pacific")}
+decode_all_div=function(x){
+  sapply(x,decode_div)}
+
+###Decode functions-urban and rural
+###see both urban cluster and urban area as urban
+decode_ur=function(x){
+  y=which(c("U","C","R")==x)
+  switch(y,"Urban","Urban","Rural")}
+decode_all_ur=function(x){
+  sapply(x,decode_ur)}
+
+## result stratified by urban and rural status
+recs2=select(recs_2015,div,ur,ele,wei,BRRWT1:BRRWT96)
+recs_decode_2=mutate(recs2,div=decode_all_div(div),
+                     ur=decode_all_ur(ur))%>%
+  group_by(div,ur)%>%
+  summarize_at(.vars=vars(wei:BRRWT96),
+               .funs=funs(sum(.*ele)/sum(.)))%>%
+  mutate_at(.vars=vars(BRRWT1:BRRWT96),
+            .funs=funs((.-wei)^2))%>%
+  ungroup()%>%
+  mutate(var_2=para*rowSums(.[4:99]))%>%
+  group_by(div)%>%
+  mutate(se_2=sqrt(var_2),rse_2=100*sqrt(var_2)/wei)%>%
+  rename(ave_ur=wei)%>%
+  select(div,ur,ave_ur,se_2,rse_2)
+```
+
+
+##Table and Plot
+The table below shows the average total electricity usage in kilowatt hours 
+in each division. The result stratified by urban and rural status is displayed in table.
+```{r}
+cap = '**Table 1.** Average electricity utilization in kwh per home for urban 
+and rural areas witihin each census division.'
+knitr::kable(recs_table_2,format='pandoc',caption=cap,align='r',
+             col.names=c("Division","Rural Usage/kwh(95% CI)",
+                         "Urban Usage/kwh(95% CI)"))
+```
+
+
+```{r fig.cap=cap}
+cap='**Figure 1.** Average electricity utilization in kwh per home for urban 
+and rural areas witihin each census division.'
+level=recs_plot_2[ur=="Rural",]%>%
+  .[order(-average_ur)]%>%
+  .[,div]
+recs_plot_2[,div:=factor(as.character(div),levels=level)]%>%
+  ggplot(aes(x=div,y=average_ur,color=ur))+
+  geom_point(position=position_dodge(.5))+
+  geom_errorbar(aes(ymin=lwr,ymax=upr),position=position_dodge(.5))+
+  scale_color_manual(values=c('navy', 'darkred')[2:1])+
+  coord_flip()+
+  theme_bw()+
+  ylab('kwh/home')+
+  xlab('')
+```
+
+
+##Question 2
+Design a Monte Carlo study in R to compute p-values matrix of ordinary linear 
+regression.
+Then compute four quantities: The family wise error rate, The false discovery 
+rate, The sensitivity and The specificity, using the p-value matrix.
+
+##Solution
+###Fuction to compute p-values
+First, we write the function p_value to accepts predictor matrices X and 
+true $\beta$ value, where X is a n by p matrix. Then response Y is generated 
+as $Y$ has normal distrubution as $N(X\beta,\sigma I)$, where $\sigma$ could be 
+controlled by the function.
+Then, this function returns a p by mc_rep matrix of p-values corresponding 
+to the test:
+$$H_0: \beta_i=0$$
+
+mc_rep is the number of Monte Carlo replicates.
+The function is:
+```{r}
+p_value=function(X,beta,sigma,mc_rep){
+  
+  ##because epsilon are independent
+  set.seed(77)
+  epsilon=rnorm(n*mc_rep,0,sigma)
+  Y=epsilon+as.vector(X%*%beta)
+  dim(Y)=c(n,mc_rep)
+  QR=qr(t(X)%*%X)
+  
+  ##i.estimate of beta
+  beta_est=solve(qr.R(QR),t(qr.Q(QR))%*%t(X)%*%Y)
+  
+  ##ii.estimate of the error variance
+  resids=Y-X%*%beta_est
+  sigma_square_est=(1/(n-p))*diag(t(resids)%*%(resids))
+  
+  ##iii.the variance of the estimate of beta
+  v=diag(chol2inv(chol(t(X)%*%X)))
+  dim(v)=c(p,1)
+  dim(sigma_square_est)=c(1,mc_rep)
+  var_beta=v%*%sigma_square_est
+  
+  ##iv.compute p-values
+  Z=beta_est/sqrt(var_beta)
+  p=2*(1-pnorm(abs(Z)))
+  p
+}
+```
+
+###Test function
+And then we test this function by assigning mc_rep=1, n=1000, p=100, $\beta=(1,1,1,1,1,1,1,1,1,1,0......0)$. In this case, we use the 
+Cholesky factorization to generate X with variance matrix which has elements in 
+77 by 7 and 7 by 77position, and we also assign the variance of Y: sigma=7. 
+And then comparing the result to the result summarized by lm(Y ~ 0 + X). 
+Becasue this table is very long, we just put first severals rows.
+```{r message=FALSE}
+###test the function
+n=1000;p=100
+beta=c(rep(1,10),rep(0,90))
+###use the Cholesky factorization to generate X=M
+sigma_x=diag(p)
+sigma_x[77,7]=0.7
+sigma_x[7,77]=0.7
+R=chol(sigma_x)
+x=rnorm(n*p)
+dim(x)=c(n,p)
+M=x%*%R
+###generate the same y
+sigma_y=7
+set.seed(77)
+epsil=rnorm(n,0,sigma_y)
+y=epsil+as.vector(M%*%beta)
+###use lm function to do linear regression
+test=lm(y~0+M)
+###use function above
+test_p=p_value(M,beta,sigma_y,1)
+###table
+```
+
+
+```{r echo=FALSE}
+table_2=as.data.table(cbind(summary(test)$coefficients,test_p))
+names(table_2)=c("Estimate","Std. Error","t value","pvalues_lm","pvalues_fun")
+table_2=table_2%>%.[,difference:=pvalues_fun-pvalues_lm]
+cap="**Table 2.**p-values computed by the function and lm method, and their 
+differences. "
+knitr::kable(head(table_2),format='pandoc',align='r',caption=cap,digits=3,
+             col.names=c("Estimate","Std. Error","t value","pvalues_lm",
+                         "pvalues_fun","Differences"))
+```
+
+Use which function to see if there is any difference is larger than 1e-3
+```{r q2_4,echo=TRUE}
+which(abs(table_2$difference)>0.001)
+```
+
+So the function passes the test.
+
+###Function to compute four quantities
+Then we write a function evaluate that takes p-value matrix and a set of indices
+where true $\beta$ are not 0, and returns Monte Carlo estimates for: The family wise 
+error rate, The false discovery rate, The sensitivity and The specificity.
+
+The function is:
+```{r eval=FALSE}
+evaluate=function(pvalues,non_zero_index){
+  
+  ###the family wise error rate is type 1 error of H0:beta_i=0
+  zero_index=c(1:length(beta))[-non_zero_index]
+  V=colSums(pvalues[zero_index,]<=0.05)
+  fwer=sum(V>=1)/dim(pvalues)[2]
+  
+  ###the false discovery rate is the expectation of the proportion of false 
+  ###discoveries among the discoveries
+  S=colSums(pvalues[non_zero_index,]<=0.05)
+  fdr=sum(V/(V+S))/dim(pvalues)[2]
+  
+  ###the sensitivity is N(true positive)/(N(true positive)+N(false negatives))
+  fn=colSums(pvalues[non_zero_index,]>0.05)
+  sensitivity=sum(S/(S+fn))/dim(pvalues)[2]
+  
+  ###the specificity is N(true negatives)/(N(true negatives)+N(false positives))
+  U=colSums(pvalues[zero_index,]>0.05)
+  specificity=sum(U/(U+V))/dim(pvalues)[2]
+  
+  v=c(fwer,fdr,sensitivity,specificity)
+  names(v)=c("family wise error rate","false discovery rate",
+             "sensitivity","specificity")
+  v
+}
+```
+
