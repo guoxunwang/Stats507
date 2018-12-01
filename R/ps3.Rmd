@@ -1,0 +1,409 @@
+---
+title: "Stats 506, F18, Problem Set 3"
+author: "Xun Wang, xunwang@umich.edu"
+date: "Novmber 3,2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# 80: --------------------------------------------------------------------------
+```
+
+##Question 1: Including Plots
+```{r q1_1, message=FALSE}
+source("ps3_q1.R")
+```
+
+###Question 1 Part a
+```{r q1_2, message=FALSE}
+cap='**Table 1.** Proportion of homes with stucco construction within each 
+census division in 2015. Estimates are based on the residential energy 
+consumption survey.'
+knitr::kable(recs_table_1,format='pandoc',caption=cap,align='r',
+             col.names=c("Divisions","%Stucco Homes(95% CI)"))
+```
+
+
+```{r q1_3, fig.cap=cap}
+cap='**Figure 1.** Estimated percent of homes within each division with 
+major wall type of stucco.'
+recs_plot_1[,div:=factor(as.character(div),as.character(div))]%>%
+  ggplot(aes(x=div,y=pct))+
+  geom_col(fill='navy')+
+  geom_errorbar(aes(ymin=lwr,ymax=upr),col='darkslategrey')+
+  theme_bw() +
+  ylab('% Stucco Homes')+
+  xlab('Division')+
+  theme(axis.text.x=element_text(size=8,angle=90))
+```
+
+From the table above, we could see percent of homes having stucco construction 
+as their major outside wall material within each division. Obviously, Mountain 
+South had the largest proportion of stucco homes and East South Central had the 
+lowest percent, which are 64.248(55.447,73.048) and 0.423(0.000,1.225).
+
+###Question 1 Part b
+The table 2 below shows the average total electricity usage in kilowatt hours 
+in each division.
+```{r q1_4}
+cap='**Table 2.** Average annual electricity utilization by Census Division 
+in kwh/home.'
+knitr::kable(recs_ave_table,format='pandoc',caption=cap,align='r',
+             col.names=c("Division","Average Electricity Usage/kwh(95% CI)"))
+```
+
+
+```{r q1_5,fig.cap = cap}
+cap='**Figure 2.** Estimated average annual electricity usage in khw/home for
+each of 10 census divisions.'
+recs_ave_plot[,div:=factor(as.character(div),as.character(div))]%>%
+  ggplot(aes(x=div,y=average))+
+  geom_point()+
+  geom_errorbar(aes(ymin =lwr,ymax=upr))+
+  coord_flip()+
+  theme_bw()+
+  ylab('kwh/home')+
+  xlab('')
+```
+
+
+The result stratified by urban and rural status is displayed in table 3.
+```{r q1_6}
+cap = '**Table 3.** Average electricity utilization in kwh per home for urban 
+and rural areas witihin each census division.'
+knitr::kable(recs_table_2,format='pandoc',caption=cap,align='r',
+             col.names=c("Division","Rural Usage/kwh(95% CI)",
+                         "Urban Usage/kwh(95% CI)"))
+```
+
+
+```{r q1_7, fig.cap=cap}
+cap='**Figure 3.** Average electricity utilization in kwh per home for urban 
+and rural areas witihin each census division.'
+level=recs_plot_2[ur=="Rural",]%>%
+  .[order(-average_ur)]%>%
+  .[,div]
+recs_plot_2[,div:=factor(as.character(div),levels=level)]%>%
+  ggplot(aes(x=div,y=average_ur,color=ur))+
+  geom_point(position=position_dodge(.5))+
+  geom_errorbar(aes(ymin=lwr,ymax=upr),position=position_dodge(.5))+
+  scale_color_manual(values=c('navy', 'darkred')[2:1])+
+  coord_flip()+
+  theme_bw()+
+  ylab('kwh/home')+
+  xlab('')
+```
+
+###Question 1 Part c
+
+In order to get the largest disparity between these proportions,  we calculate 
+the proportion of homes with internet access of urban and rural areas first, 
+and the BBR standard error to estimate these proportions repectively.And then 
+we get their disparity through spreading the table.
+```{r q1_8}
+cap="**Table 4.** Urban and rural disparity in internet access for the ten 
+US Census Division in 2015. "
+knitr::kable(recs_disp,format='pandoc',caption=cap,align='r',
+             col.names=c("Division","Rural Internet Access(95% CI)",
+                         "Urban Internet Access(95% CI)","Differences"))
+```
+
+
+
+```{r q1_9,fig.cap=cap}
+cap="**Figure 4.** Urban and rural disparity in internet access for the ten 
+US Census Division in 2015. "
+level3=recs_plot_3[ur=="Rural",]%>%
+  .[order(-pct)]%>%
+  .[,div]
+recs_plot_3[,div:=factor(as.character(div),levels=level3)]%>%
+ggplot(aes(x=div,y=pct,fill=ur))+
+  geom_col(position=position_dodge())+
+  geom_errorbar(aes(ymin=lwr,ymax=upr),position=position_dodge(),col='slategrey')+
+  scale_fill_manual(values = c('darkred','navy'))+
+  coord_flip()+
+  theme_bw()+
+  xlab('')+
+  ylab('% of homes with internet access') +
+  ylim(c(0,100))
+ 
+  
+```
+
+The largest disparity happened in Mountain South division and there is an 18.5% 
+disparity between Urban and Rural internet access. This is approximately twice 
+as large as the next largest estimated disparity and the only estimate whose 
+confidence interval does not include zero.
+ 
+###Question 1 Part d
+
+Question d: What proportion of homes have on-site electricity generation from 
+solar within each division? Stratified by urban and rural status.
+```{r q1_10}
+cap="**Table 5.** Urban and rural proportions in on-site electricity generation 
+from solar for US Census Divisions in 2015. "
+knitr::kable(recs_table_4,format='pandoc',caption=cap,align='r',
+             col.names=c("Division","Rural Solar Proportion(95% CI)",
+                         "Urban Solar Porportion(95% CI)"))
+```
+
+
+```{r q1_11,fig.cap=cap,fig.align='center'}
+cap="**Figure 5.** Urban and rural proportions in on-site electricity generation 
+from solar for US Census Divisions in 2015 by excluding some NA values. "
+level4=recs_plot_4[ur=="Urban",]%>%
+  .[order(-pct)]%>%
+  .[,div]
+recs_plot_4[,div:=factor(as.character(div),levels=level4)]%>%
+  .[div!="East South Central"&div!="West North Central"]%>%
+ggplot(aes(x=div,y=pct,fill=ur))+
+  geom_col(position=position_dodge())+
+  geom_errorbar(aes(ymin=lwr,ymax=upr),position=position_dodge(),col='slategrey')+
+  scale_fill_manual(values = c('darkred','navy'))+
+  coord_flip()+
+  theme_bw()+
+  xlab('')+
+  ylab('% of homes with solar') +
+  ylim(c(0,13))
+```
+
+\pagebreak 
+
+##Question 2: Including Plots
+```{r q2_1,message=FALSE}
+source("ps3_q2.R")
+```
+
+###Question 2 Part a
+
+We write the function p_value to accepts matrices X and beta and returns a p by 
+mc_rep matrix of p-values corresponding to the test in this question. The function
+is:
+```{r q2_2,eval=FALSE,echo=TRUE}
+p_value=function(X,beta,sigma,mc_rep){
+  
+  ##because epsilon are independent
+  set.seed(77)
+  epsilon=rnorm(n*mc_rep,0,sigma)
+  Y=epsilon+as.vector(X%*%beta)
+  dim(Y)=c(n,mc_rep)
+  QR=qr(t(X)%*%X)
+  
+  ##i.estimate of beta
+  beta_est=solve(qr.R(QR),t(qr.Q(QR))%*%t(X)%*%Y)
+  
+  ##ii.estimate of the error variance
+  resids=Y-X%*%beta_est
+  sigma_square_est=(1/(n-p))*diag(t(resids)%*%(resids))
+  
+  ##iii.the variance of the estimate of beta
+  v=diag(chol2inv(chol(t(X)%*%X)))
+  dim(v)=c(p,1)
+  dim(sigma_square_est)=c(1,mc_rep)
+  var_beta=v%*%sigma_square_est
+  
+  ##iv.compute p-values
+  Z=beta_est/sqrt(var_beta)
+  p=2*(1-pnorm(abs(Z)))
+  p
+}
+```
+
+And then we test this function by assigning mc_rep=1. In this case, we use the 
+Cholesky factorization to generate X with variance matrix which has elements in 
+77 by 7 and 7 by 77position, and we also assign sigma=7. And then comparing the 
+result to the result summarized by lm(Y ~ 0 + X). Becasue this table is very long,
+we just put first severals rows.
+```{r q2_3,message=FALSE}
+table_2=as.data.table(cbind(summary(test)$coefficients,test_p))
+names(table_2)=c("Estimate","Std. Error","t value","pvalues_lm","pvalues_fun")
+table_2=table_2%>%.[,difference:=pvalues_fun-pvalues_lm]
+cap="**Table 6.**p-values computed by the function and lm method, and their 
+differences. "
+knitr::kable(head(table_2),format='pandoc',align='r',caption=cap,digits=3,
+             col.names=c("Estimate","Std. Error","t value","pvalues_lm",
+                         "pvalues_fun","Differences"))
+```
+
+Use which function to see if there is any difference is larger than 1e-3
+```{r q2_4,echo=TRUE}
+which(abs(table_2$difference)>0.001)
+```
+
+So the function passes the test.
+
+###Question 2 Part b
+
+We choose the same variance of X and sigma in part a. And then assume mc_rep
+=1000, we could get a p by mc_rep=100*1000 dimensional matrix of p-values 
+by passing these parameters to the function in part a.
+```{r q2_5,echo=TRUE}
+dim(pvalues)
+```
+
+###Question 2 Part c
+
+The function is:
+```{r q2_6,eval=FALSE,echo=TRUE}
+evaluate=function(pvalues,non_zero_index){
+  
+  ###the family wise error rate is type 1 error of H0:beta_i=0
+  zero_index=c(1:length(beta))[-non_zero_index]
+  V=colSums(pvalues[zero_index,]<=0.05)
+  fwer=sum(V>=1)/dim(pvalues)[2]
+  
+  ###the false discovery rate is the expectation of the proportion of false 
+  ###discoveries among the discoveries
+  S=colSums(pvalues[non_zero_index,]<=0.05)
+  fdr=sum(V/(V+S))/dim(pvalues)[2]
+  
+  ###the sensitivity is N(true positive)/(N(true positive)+N(false negatives))
+  fn=colSums(pvalues[non_zero_index,]>0.05)
+  sensitivity=sum(S/(S+fn))/dim(pvalues)[2]
+  
+  ###the specificity is N(true negatives)/(N(true negatives)+N(false positives))
+  U=colSums(pvalues[zero_index,]>0.05)
+  specificity=sum(U/(U+V))/dim(pvalues)[2]
+  
+  v=c(fwer,fdr,sensitivity,specificity)
+  names(v)=c("family wise error rate","false discovery rate",
+             "sensitivity","specificity")
+  v
+}
+```
+
+###Question 2 Part d&e
+
+Apply our evaluate function to the matrix of p-values matrix, we get five 
+groups of family wise error rate, false discovery rate, sensitivity and
+specificity quantities, which are before adjust and adjusted by Bonferroni,
+Holm,BH and BY methods. We combine them into one table.
+```{r q2_7}
+cap="**Table 7.**Four quantities computed using different methods. "
+adjust_evaluate=rbind(before_adjust,bonferroni_evaluate,holm_evaluate,
+                   BH_evaluate,BY_evaluate)
+knitr::kable(adjust_evaluate,format='pandoc',align='r',caption=cap,digits=3)
+```
+
+We caould also draw a graph of these quantities.
+```{r q2_8,fig.cap=cap,message=FALSE,warning=FALSE,fig.align='center'}
+cap="**Figure 6.** .Four quantities computed using different methods. "
+as.data.frame(cbind(method_name=c("before adjust","bonferroni adjusted",
+                              "holm adjusted","BH adjusted","BY adjusted"),
+                adjust_evaluate))%>%
+  gather_("quantity_name","quantity",c("family wise error rate",
+                                       "false discovery rate",
+                                "sensitivity","specificity"))%>%
+  ggplot( aes(x=method_name, y=quantity, col=quantity_name))+
+  geom_line()+
+  geom_point(size=2.7) +
+  theme_bw() +
+  ylab('values for four quantities') +
+  xlab('')
+
+```
+
+\pagebreak
+
+##Question 3: Including Plots
+```{r q3_1,message=FALSE}
+source("ps3_q3.R")
+```
+
+###Question 3 Part a
+
+The translation of data.table is as following:
+```{r q3_2,eval=FALSE,echo=TRUE}
+dt=as.data.table(mtcars)
+dt=dt%>%
+  .[,.(mpg,cyl,disp,hp,wt)]
+beta_cyl=dt%>%
+  
+  ##compute centered variables, cross product with mpg, and squares.
+  .[,`:=`(disp_gc=disp-mean(disp),hp_gc=hp-mean(hp),wt_gc=wt-mean(wt)),
+    by=.(cyl)]%>%
+  .[,`:=`(dispXmpg=mpg*disp_gc,hpXmpg=mpg*hp_gc,wtXmpg=mpg*wt_gc,
+    disp_sq=disp_gc*disp_gc,hp_sq=hp_gc*hp_gc,wt_sq=wt_gc*wt_gc),
+    by=.(cyl)]%>%
+  
+  ##Compute the cross products, sum of squares, and regression coefficients
+  .[,.(dispXmpg=sum(dispXmpg),disp_sq=sum(disp_sq),
+       hpXmpg=sum(hpXmpg),hp_sq=sum(hp_sq),
+       wtXmpg=sum(wtXmpg),wt_sq=sum(wt_sq)),
+    by=.(cyl)]%>%
+  
+  ##Compute betas
+  .[,`:=`(beta_cyl_disp=dispXmpg/disp_sq,
+          beta_cyl_hp=hpXmpg/hp_sq,
+          beta_cyl_wt=wtXmpg/wt_sq),
+    by=.(cyl)]%>%
+  .[,-c("dispXmpg","disp_sq","hpXmpg","hp_sq","wtXmpg","wt_sq")]
+##save as new file
+fwrite(beta_cyl,file='mpg_cor_by_cyl.csv')
+```
+
+###Question 3 Part b
+
+```{r q3_3,eval=FALSE,echo=TRUE}
+uni_reg=function(y,x,group){
+  beta_group=as.data.table(cbind(y,x,group))%>%
+    .[,x_gc:=x-mean(x),group]%>%
+    .[,`:=`(xXy=y*x_gc,x_sq=x_gc*x_gc),group]%>%
+    .[,.(xXy=sum(xXy),x_sq=sum(x_sq)),group]%>%
+    .[,beta_group_x:=xXy/x_sq,group]%>%
+    .[,-c("xXy","x_sq")]
+  beta_group
+}
+```
+
+Then we test our function uni_reg.
+```{r q3_4,eval=TRUE}
+mpg=mtcars$mpg
+disp=mtcars$disp
+hp=mtcars$hp
+wt=mtcars$wt
+cyl=mtcars$cyl
+uni_disp=uni_reg(mpg,disp,cyl)
+uni_hp=uni_reg(mpg,hp,cyl)
+uni_wt=uni_reg(mpg,wt,cyl)
+cap_1="**Table 8.**Compute univariate regression coefficient by group 
+using function. "
+cbind(uni_disp,uni_hp,uni_wt)%>%
+  knitr::kable(format='pandoc',align='r',caption=cap_1,digits=3,
+               col.names=c("cyl","beta_disp","cyl","beta_hp","cyl","beta_wt"))
+```
+
+It is the same with the result computed in part a.
+```{r q3_5}
+cap_2="**Table 9.**Compute univariate regression coefficient by group 
+in part a "
+beta_cyl%>%
+  knitr::kable(format='pandoc',align='r',caption=cap_2,digits=3)
+```
+
+So, the function uni_reg passes the test.
+
+###Question 3 Part c
+```{r q3_6}
+cap="**Table 10.**Compute univariate regression coefficient by group 
+using summarize_at"
+beta_cyl_tibble%>%
+  knitr::kable(format='pandoc',align='r',caption=cap,digits=3)
+```
+
+###Question 3 Part d
+```{r q3_7}
+cap="**Table 11.**Compute univariate regression coefficient by group 
+using dplyr quotes function"
+uni_disp_tibble=uni_reg_tibble(mpg,disp,cyl)
+uni_hp_tibble=uni_reg_tibble(mpg,hp,cyl)
+uni_wt_tibble=uni_reg_tibble(mpg,wt,cyl)
+cbind(uni_disp_tibble,uni_hp_tibble,uni_wt_tibble)%>%
+  knitr::kable(format='pandoc',align='r',caption=cap,digits=3)
+
+# 80: --------------------------------------------------------------------------
+```
+
